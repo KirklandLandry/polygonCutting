@@ -5,8 +5,7 @@ local mouseDown = false
 local m1 = {x = 0, y = 0}
 
 -- debug 
-local intersectX = -1
-local intersectY = -1
+local intersectionPtDrawList = {}
 
 
 function packPoint2D(px,py)
@@ -57,7 +56,7 @@ function drawGame()
 		end ]]
 		-- draw circles on every point 
 		for n=1,#polyList[i],2 do
-			love.graphics.circle("fill", polyList[i][n], polyList[i][n+1], 7, 32)
+			love.graphics.circle("fill", polyList[i][n], polyList[i][n+1], 5, 32)
 		end
 	end
 	
@@ -67,7 +66,10 @@ function drawGame()
 		love.graphics.line(m1.x, m1.y, x, y)
 	end 
 	-- intersection point 
-	love.graphics.circle("fill", intersectX, intersectY, 4, 10)
+	for i=1,#intersectionPtDrawList do
+		love.graphics.circle("fill", intersectionPtDrawList[i].x, intersectionPtDrawList[i].y, 4, 10)
+	end
+	
 end 
 
 function perpDot(a, b)
@@ -108,7 +110,9 @@ function getLineIntersectionPoint(percent, b1, b2)
 			((b2.y - b1.y) * percent) + b1.y)
 end 
 
+-- https://geidav.wordpress.com/2015/03/21/splitting-an-arbitrary-polygon-by-a-line/
 function splicePoly(m2)
+	intersectionPtDrawList = {}
 	-- for every poly 
 	for i=1,#polyList do
 		-- for each edge get the pairs of intersection points
@@ -125,10 +129,12 @@ function splicePoly(m2)
 			end
 			if percent ~= 0 then
 				local intersectionPt = getLineIntersectionPoint(percent, m1, m2)
-				intersectX = intersectionPt.x
-				intersectY = intersectionPt.y
+				table.insert(intersectionPtDrawList, packPoint2D(intersectionPt.x, intersectionPt.y))
 			end  
 		end 
+
+ 
+
 	end
 
 end 
