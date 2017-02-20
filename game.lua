@@ -1,12 +1,14 @@
 
 local polyList = {}
 local drawingSpliceLine = false
-local mouseDown = false
 local m1 = {x = 0, y = 0}
-
+local m2 = {x = 0, y = 0}
 -- debug 
 local intersectionPtDrawList = {}
 
+-- add a poly creation thing 
+-- click lines, press button to close
+-- if close line will intersect with any of the edges, don't close 
 
 function packPoint2D(px,py)
 	return {x = px, y = py}
@@ -21,6 +23,21 @@ function packEdge2D(x1, y1, x2, y2)
 		packPoint2D(x1, y1),
 		packPoint2D(x2, y2)
 		)
+end 
+
+function love.mousepressed(x, y, button)
+	if button == 1 then 
+		if not drawingSpliceLine then 
+			drawingSpliceLine = true
+			m1.x = love.mouse.getX()
+			m1.y = love.mouse.getY()
+		else 
+			drawingSpliceLine = false 
+			m2.x = love.mouse.getX()
+			m2.y = love.mouse.getY()
+			splicePoly()
+		end 
+	end 
 end 
 
 -- BASE LOAD
@@ -39,22 +56,6 @@ end
 function updateGame(dt)	
 	if getKeyDown("escape") then 
 		love.event.quit(0)
-	end 
-
-	if love.mouse.isDown("1") then 
-		if not mouseDown then 
-			if not drawingSpliceLine then 
-				drawingSpliceLine = true
-				m1.x = love.mouse.getX()
-				m1.y = love.mouse.getY()
-			else 
-				drawingSpliceLine = false 
-				splicePoly({x = love.mouse.getX(), y = love.mouse.getY()})
-			end 
-			mouseDown = true
-		end 
-	else 
-		mouseDown = false
 	end 
 
 end
@@ -85,7 +86,7 @@ function drawGame()
 	end 
 	-- intersection point 
 	for i=1,#intersectionPtDrawList do
-		love.graphics.circle("fill", intersectionPtDrawList[i].x, intersectionPtDrawList[i].y, 4, 10)
+		love.graphics.circle("fill", intersectionPtDrawList[i].pt.x, intersectionPtDrawList[i].pt.y, 4, 10)
 	end
 	
 end 
@@ -129,7 +130,8 @@ function getLineIntersectionPoint(percent, b1, b2)
 end 
 
 -- https://geidav.wordpress.com/2015/03/21/splitting-an-arbitrary-polygon-by-a-line/
-function splicePoly(m2)
+-- http://stackoverflow.com/questions/3623703/how-can-i-split-a-polygon-by-a-line
+function splicePoly()
 
 	-- to prevent trying to split a line that starts or ends inside the poly, 
 	-- should reject immediately if mouse point is inside poly 
@@ -138,36 +140,58 @@ function splicePoly(m2)
 	intersectionPtDrawList = {}
 	-- for every poly 
 	for i=1,#polyList do
-		-- for each edge get the pairs of intersection points
-		for n=1,#polyList[i].edges,1 do
-			local percent = 0
-			
-			percent = getLineIntersectionPercent(
-					polyList[i].edges[n].p1, polyList[i].edges[n].p2, 
-					packPoint2D(m1.x,m1.y), packPoint2D(m2.x,m2.y))
+		-- for each edge get the intersection points
 
-			if percent ~= 0 then
-				local intersectionPt = getLineIntersectionPoint(percent, m1, m2)
-				table.insert(intersectionPtDrawList, packPoint2D(intersectionPt.x, intersectionPt.y))
+		-- here I shoud probably replace the edge with 2 edges based on the intersection point 
+		-- maybe mark them or just do a comparion with the list later
+
+		-- so the polygon has the split edges
+		-- add the start and end point of the split to the polygon 
+		-- then when traversing the polygon. look for the start point
+		-- if you hit it, follow it to the end point, then back to the start 
+		-- this completes a polygon. push back 
+		-- continue with all polygon edges until theres none left of the original polygon
+
+		for n=1,#polyList[i].edges,1 do			
+			local percentAlongLine = getLineIntersectionPercent( 
+				polyList[i].edges[n].p1, polyList[i].edges[n].p2, 
+				packPoint2D(m1.x,m1.y), packPoint2D(m2.x,m2.y) )
+			if percentAlongLine ~= 0 then
+				local intersectionPt = getLineIntersectionPoint(percentAlongLine, m1, m2)
+				table.insert(intersectionPtDrawList, {p = percentAlongLine, pt = intersectionPt})
 			end  
 		end 
 	
 		-- don't do it if there's less than 1 intersection pt
 		-- shouldn't need this later once the checks mentioned at the start are added 
+		-- sort points by position along the line 
 		if #intersectionPtDrawList > 1 then 
-			--table.sort( intersectionPtDrawList, sortPointList )
+			table.sort( intersectionPtDrawList, sortIntersectionPointsAlongLine )
 		end 
+
+		-- pair the intersection points as alternating entry/exit edges
+		local outputPolys = {}
+
 
 	end
 end 
 
---[[
-function sortPointList(a, b)
-	return calcSignedDistance(a, b) 
+function sortIntersectionPointsAlongLine(a, b)
+	return a.p < b.p
 end 
 
-function calcSignedDistance(a, b)
+--[[
+function sortPointList(a, b)
+	local line = packEdge2DFromPts(m1.x,m1.y, m2.x,m2.y)
+	return calcSignedDistance(line, a.p1) < calcSignedDistance(line, b.p1) 
+end 
+
+function calcSignedDistance(line, p)
 	return (
-		a.x - b.x * 
+		((p.x - line.p1.x) * (line.p2.x - line.p1.x)) + 
+		((p.y - line.p1.y) * (line.p2.y - line.p1.y))
 		)
-end]]
+end
+]]
+
+
