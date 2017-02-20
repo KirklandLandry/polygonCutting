@@ -3,8 +3,7 @@ local polyList = {}
 local drawingSpliceLine = false
 local m1 = {x = 0, y = 0}
 local m2 = {x = 0, y = 0}
--- debug 
-local intersectionPtDrawList = {}
+
 
 -- add a poly creation thing 
 -- click lines, press button to close
@@ -69,13 +68,29 @@ function drawGame()
 	for i=1,#polyList do
 		-- draw the poly
 		--love.graphics.polygon("line", polyList[i])
-		-- debug poly draw
+		local redInc = 50
+		local blueInc = 0
+		local greenInc = 0
 		for n=1,#polyList[i].edges,1 do
+			love.graphics.setColor(redInc, blueInc, greenInc)
 			drawEdge(polyList[i].edges[n])
+			if redInc < 255 then 
+				redInc = redInc + 10
+			elseif blueInc < 255 then 
+				blueInc = blueInc + 10
+			elseif greenInc < 200 then 
+				greenInc = greenInc + 10 
+			else 
+				redInc = 50 
+				blueInc = 0
+				greenInc = 0
+			end  
 		end 
+		resetColor()
+
 		-- draw circles on every point 
 		for n=1,#polyList[i].edges,1 do
-			love.graphics.circle("fill", polyList[i].edges[n].p1.x, polyList[i].edges[n].p1.y, 5, 32)
+			love.graphics.circle("fill", polyList[i].edges[n].p1.x, polyList[i].edges[n].p1.y, 1, 32)
 		end
 	end
 	
@@ -84,10 +99,7 @@ function drawGame()
 		local x, y = love.mouse.getPosition()
 		love.graphics.line(m1.x, m1.y, x, y)
 	end 
-	-- intersection point 
-	for i=1,#intersectionPtDrawList do
-		love.graphics.circle("fill", intersectionPtDrawList[i].pt.x, intersectionPtDrawList[i].pt.y, 4, 10)
-	end
+
 	
 end 
 
@@ -137,7 +149,6 @@ function splicePoly()
 	-- should reject immediately if mouse point is inside poly 
 	-- need to split poly into tris. point check on each tri in poly 
 
-	intersectionPtDrawList = {}
 	-- for every poly 
 	for i=1,#polyList do
 		-- for each edge get the intersection points
@@ -152,22 +163,32 @@ function splicePoly()
 		-- this completes a polygon. push back 
 		-- continue with all polygon edges until theres none left of the original polygon
 
-		for n=1,#polyList[i].edges,1 do			
+		local intersectionPtList = {}
+
+		local size = #polyList[i].edges
+		for n=size,1,-1 do			
 			local percentAlongLine = getLineIntersectionPercent( 
 				polyList[i].edges[n].p1, polyList[i].edges[n].p2, 
 				packPoint2D(m1.x,m1.y), packPoint2D(m2.x,m2.y) )
 			if percentAlongLine ~= 0 then
 				local intersectionPt = getLineIntersectionPoint(percentAlongLine, m1, m2)
-				table.insert(intersectionPtDrawList, {p = percentAlongLine, pt = intersectionPt})
+				table.insert(intersectionPtList, {p = percentAlongLine, pt = intersectionPt})		
+				local temp = polyList[i].edges[n]
+				table.remove(polyList[i].edges, n)
+				table.insert(polyList[i].edges, n, packEdge2DFromPts(temp.p1, intersectionPt))
+				table.insert(polyList[i].edges, n+1, packEdge2DFromPts(intersectionPt, temp.p2))
 			end  
 		end 
 	
 		-- don't do it if there's less than 1 intersection pt
 		-- shouldn't need this later once the checks mentioned at the start are added 
 		-- sort points by position along the line 
-		if #intersectionPtDrawList > 1 then 
-			table.sort( intersectionPtDrawList, sortIntersectionPointsAlongLine )
+		if #intersectionPtList > 1 then 
+			table.sort( intersectionPtList, sortIntersectionPointsAlongLine )
 		end 
+
+		-- if the list of intersection points is odd, should just reject it entirely 
+		-- come up with a better solution later 
 
 		-- pair the intersection points as alternating entry/exit edges
 		local outputPolys = {}
