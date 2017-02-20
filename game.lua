@@ -12,9 +12,27 @@ function packPoint2D(px,py)
 	return {x = px, y = py}
 end 
 
+function packEdge2DFromPts(pt1, pt2)
+	return {p1 = pt1, p2 = pt2}
+end 
+
+function packEdge2D(x1, y1, x2, y2)
+	return packEdge2DFromPts(
+		packPoint2D(x1, y1),
+		packPoint2D(x2, y2)
+		)
+end 
+
 -- BASE LOAD
 function loadGame()
-	table.insert(polyList, {70,70, 260,70, 260,260, 70,260})
+	polyList = {}
+	polyList[1] = {
+		edges = {},
+	}
+	table.insert(polyList[1].edges, packEdge2D(70,70, 260,70))
+	table.insert(polyList[1].edges, packEdge2D(260,70, 260,260))
+	table.insert(polyList[1].edges, packEdge2D(260,260, 70,260))
+	table.insert(polyList[1].edges, packEdge2D(70,260, 70,70))	
 end
 
 -- BASE UPDATE 
@@ -41,22 +59,22 @@ function updateGame(dt)
 
 end
 
+function drawEdge(e)
+	love.graphics.line(e.p1.x, e.p1.y, e.p2.x, e.p2.y) 		
+end 
+
 -- BASE DRAW
 function drawGame()
 	for i=1,#polyList do
 		-- draw the poly
-		love.graphics.polygon("line", polyList[i])
+		--love.graphics.polygon("line", polyList[i])
 		-- debug poly draw
-		--[[for n=1,#polyList[i],2 do
-			if (n == (#polyList[i]-1)) then 
-				love.graphics.line(polyList[i][n], polyList[i][n+1], polyList[i][1], polyList[i][2])
-			else 
-				love.graphics.line(polyList[i][n], polyList[i][n+1], polyList[i][n+2], polyList[i][n+3])
-			end 		
-		end ]]
+		for n=1,#polyList[i].edges,1 do
+			drawEdge(polyList[i].edges[n])
+		end 
 		-- draw circles on every point 
-		for n=1,#polyList[i],2 do
-			love.graphics.circle("fill", polyList[i][n], polyList[i][n+1], 5, 32)
+		for n=1,#polyList[i].edges,1 do
+			love.graphics.circle("fill", polyList[i].edges[n].p1.x, polyList[i].edges[n].p1.y, 5, 32)
 		end
 	end
 	
@@ -112,29 +130,44 @@ end
 
 -- https://geidav.wordpress.com/2015/03/21/splitting-an-arbitrary-polygon-by-a-line/
 function splicePoly(m2)
+
+	-- to prevent trying to split a line that starts or ends inside the poly, 
+	-- should reject immediately if mouse point is inside poly 
+	-- need to split poly into tris. point check on each tri in poly 
+
 	intersectionPtDrawList = {}
 	-- for every poly 
 	for i=1,#polyList do
 		-- for each edge get the pairs of intersection points
-		for n=1,#polyList[i],2 do
+		for n=1,#polyList[i].edges,1 do
 			local percent = 0
-			if (n == (#polyList[i]-1)) then 
-				percent = getLineIntersectionPercent(
-					packPoint2D(polyList[i][n], polyList[i][n+1]), packPoint2D(polyList[i][1], polyList[i][2]), 
-					packPoint2D(m1.x,m1.y), packPoint2D(m2.x,m2.y)) 
-			else 
-				percent = getLineIntersectionPercent(
-					packPoint2D(polyList[i][n], polyList[i][n+1]), packPoint2D(polyList[i][n+2], polyList[i][n+3]), 
-					packPoint2D(m1.x,m1.y), packPoint2D(m2.x,m2.y)) 
-			end
+			
+			percent = getLineIntersectionPercent(
+					polyList[i].edges[n].p1, polyList[i].edges[n].p2, 
+					packPoint2D(m1.x,m1.y), packPoint2D(m2.x,m2.y))
+
 			if percent ~= 0 then
 				local intersectionPt = getLineIntersectionPoint(percent, m1, m2)
 				table.insert(intersectionPtDrawList, packPoint2D(intersectionPt.x, intersectionPt.y))
 			end  
 		end 
-
- 
+	
+		-- don't do it if there's less than 1 intersection pt
+		-- shouldn't need this later once the checks mentioned at the start are added 
+		if #intersectionPtDrawList > 1 then 
+			--table.sort( intersectionPtDrawList, sortPointList )
+		end 
 
 	end
-
 end 
+
+--[[
+function sortPointList(a, b)
+	return calcSignedDistance(a, b) 
+end 
+
+function calcSignedDistance(a, b)
+	return (
+		a.x - b.x * 
+		)
+end]]
